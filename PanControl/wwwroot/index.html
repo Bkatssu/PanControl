@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanControl - Iniciar sesion</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<div class="pantalla-login">
+    <div class="caja-login">
+
+        <div class="logo">
+            <div class="icono">&#127838;</div>
+            <h1>PanControl</h1>
+            <p>Carmen Bakery GT</p>
+        </div>
+
+        <div id="mensaje" class="mensaje error oculto"></div>
+
+        <form id="formulario">
+            <div class="campo">
+                <label for="usuario">Usuario</label>
+                <input type="text" id="usuario" autocomplete="username" required autofocus>
+            </div>
+
+            <div class="campo">
+                <label for="contrasena">Contrasena</label>
+                <input type="password" id="contrasena" autocomplete="current-password" required>
+            </div>
+
+            <button type="submit" class="ancho" id="btnEntrar">Entrar</button>
+        </form>
+
+        <div class="ayuda-login">
+            <strong>Usuarios de prueba</strong><br>
+            Administrador: <code>admin</code> / <code>admin123</code><br>
+            Cajero: <code>cajero1</code> / <code>cajero123</code><br>
+            Produccion: <code>produccion1</code> / <code>prod123</code>
+        </div>
+
+    </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    // Si el usuario ya habia entrado, no lo hacemos iniciar sesion de nuevo
+    const sesionActiva = sesion.obtener();
+    if (sesionActiva) {
+        window.location.href = pantallaInicial(sesionActiva.rol);
+    }
+
+    const formulario = document.getElementById("formulario");
+    const boton = document.getElementById("btnEntrar");
+
+    formulario.addEventListener("submit", async (evento) => {
+        evento.preventDefault();   // evita que la pagina se recargue
+
+        const usuario = document.getElementById("usuario").value.trim();
+        const contrasena = document.getElementById("contrasena").value;
+
+        if (!usuario || !contrasena) {
+            avisar("mensaje", "Escribe tu usuario y tu contrasena.", "error");
+            return;
+        }
+
+        boton.disabled = true;
+        boton.textContent = "Verificando...";
+
+        try {
+            // Llama a POST /api/usuarios/login
+            const datos = await api.login(usuario, contrasena);
+
+            sesion.guardar(datos);
+            window.location.href = pantallaInicial(datos.rol);
+
+        } catch (error) {
+            avisar("mensaje", error.message, "error");
+            document.getElementById("contrasena").value = "";
+            boton.disabled = false;
+            boton.textContent = "Entrar";
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,306 @@
+/* ===========================================================================
+   PanControl - Hoja de estilos del sistema
+   Panaderia Carmen Bakery GT
+   =========================================================================== */
+
+:root {
+    --pan-masa:      #F5EFE6;   /* fondo, color de masa cruda */
+    --pan-corteza:   #B5651D;   /* naranja/cafe de corteza, color principal */
+    --pan-horno:     #8B4513;   /* cafe oscuro, textos y encabezados */
+    --pan-trigo:     #E8A33D;   /* dorado, acentos */
+    --pan-crema:     #FFFFFF;
+    --pan-borde:     #E0D5C4;
+    --pan-texto:     #3D2B1F;
+    --pan-suave:     #7A6A5A;
+    --ok:            #2E7D32;
+    --alerta:        #C62828;
+    --aviso:         #EF6C00;
+    --sombra:        0 2px 8px rgba(61, 43, 31, .08);
+    --radio:         10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--pan-masa);
+    color: var(--pan-texto);
+    font-size: 15px;
+}
+
+/* --------------------------------------------------------------- Barra superior */
+.barra {
+    background: var(--pan-horno);
+    color: var(--pan-crema);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    box-shadow: var(--sombra);
+    flex-wrap: wrap;
+}
+
+.barra .marca {
+    font-size: 20px;
+    font-weight: 700;
+    padding: 14px 0;
+    letter-spacing: .3px;
+}
+
+.barra .marca span { color: var(--pan-trigo); }
+
+.barra nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+
+.barra nav a {
+    color: #EADFD2;
+    text-decoration: none;
+    padding: 16px 14px;
+    font-size: 14px;
+    border-bottom: 3px solid transparent;
+    transition: .15s;
+}
+
+.barra nav a:hover { color: #fff; background: rgba(255,255,255,.07); }
+.barra nav a.activo { color: #fff; border-bottom-color: var(--pan-trigo); font-weight: 600; }
+
+.barra .usuario {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.barra .usuario .rol {
+    background: rgba(255,255,255,.15);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+/* --------------------------------------------------------------- Contenedor */
+.contenido { max-width: 1200px; margin: 24px auto; padding: 0 20px 60px; }
+
+h1 { font-size: 24px; color: var(--pan-horno); margin: 0 0 4px; }
+h2 { font-size: 18px; color: var(--pan-horno); margin: 0 0 12px; }
+.subtitulo { color: var(--pan-suave); margin: 0 0 24px; font-size: 14px; }
+
+/* --------------------------------------------------------------- Tarjetas */
+.tarjeta {
+    background: var(--pan-crema);
+    border: 1px solid var(--pan-borde);
+    border-radius: var(--radio);
+    padding: 18px;
+    box-shadow: var(--sombra);
+    margin-bottom: 20px;
+}
+
+.tarjeta > h2 { border-bottom: 1px solid var(--pan-borde); padding-bottom: 10px; }
+
+.rejilla { display: grid; gap: 18px; }
+.rejilla.dos { grid-template-columns: 1fr 1fr; }
+.rejilla.tres { grid-template-columns: repeat(3, 1fr); }
+.rejilla.cuatro { grid-template-columns: repeat(4, 1fr); }
+
+/* --------------------------------------------------------------- Indicadores */
+.indicador {
+    background: var(--pan-crema);
+    border: 1px solid var(--pan-borde);
+    border-left: 4px solid var(--pan-corteza);
+    border-radius: var(--radio);
+    padding: 16px 18px;
+    box-shadow: var(--sombra);
+}
+
+.indicador .etiqueta {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--pan-suave);
+    margin-bottom: 6px;
+}
+
+.indicador .valor { font-size: 28px; font-weight: 700; color: var(--pan-horno); line-height: 1.1; }
+.indicador .nota { font-size: 12px; color: var(--pan-suave); margin-top: 4px; }
+.indicador.alerta { border-left-color: var(--alerta); }
+.indicador.alerta .valor { color: var(--alerta); }
+
+/* --------------------------------------------------------------- Tablas */
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+thead th {
+    background: #FAF6F0;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--pan-suave);
+    border-bottom: 2px solid var(--pan-borde);
+}
+
+tbody td { padding: 10px 12px; border-bottom: 1px solid #F0EAE0; }
+tbody tr:hover { background: #FDFBF8; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------- Etiquetas */
+.chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.chip.ok     { background: #E8F5E9; color: var(--ok); }
+.chip.bajo   { background: #FFEBEE; color: var(--alerta); }
+.chip.aviso  { background: #FFF3E0; color: var(--aviso); }
+
+/* --------------------------------------------------------------- Formularios */
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--pan-horno); }
+
+input, select {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--pan-borde);
+    border-radius: 7px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+    color: var(--pan-texto);
+}
+
+input:focus, select:focus { outline: 2px solid var(--pan-trigo); outline-offset: -1px; border-color: var(--pan-trigo); }
+
+.campo { margin-bottom: 14px; }
+.fila { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.fila > * { flex: 1; min-width: 140px; }
+
+/* --------------------------------------------------------------- Botones */
+button, .boton {
+    background: var(--pan-corteza);
+    color: #fff;
+    border: 0;
+    padding: 10px 18px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: .15s;
+}
+
+button:hover, .boton:hover { background: #9C5518; }
+button:disabled { background: #CFC3B4; cursor: not-allowed; }
+
+button.secundario { background: transparent; color: var(--pan-corteza); border: 1px solid var(--pan-corteza); }
+button.secundario:hover { background: #FBF2E8; }
+button.peligro { background: var(--alerta); }
+button.peligro:hover { background: #A51D1D; }
+button.chico { padding: 5px 11px; font-size: 13px; }
+button.ancho { width: 100%; padding: 13px; font-size: 16px; }
+
+/* --------------------------------------------------------------- Mensajes */
+.mensaje {
+    padding: 12px 14px;
+    border-radius: 7px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    border-left: 4px solid;
+}
+
+.mensaje.exito { background: #E8F5E9; border-color: var(--ok); color: #1B5E20; }
+.mensaje.error { background: #FFEBEE; border-color: var(--alerta); color: #B71C1C; }
+.mensaje.info  { background: #FFF8E1; border-color: var(--pan-trigo); color: #7A5200; }
+.oculto { display: none !important; }
+
+/* --------------------------------------------------------------- Login */
+.pantalla-login {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #8B4513 0%, #B5651D 55%, #E8A33D 100%);
+    padding: 20px;
+}
+
+.caja-login {
+    background: #fff;
+    border-radius: 14px;
+    padding: 38px 34px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+
+.caja-login .logo { text-align: center; margin-bottom: 26px; }
+.caja-login .logo .icono { font-size: 44px; line-height: 1; }
+.caja-login .logo h1 { font-size: 26px; margin: 10px 0 2px; }
+.caja-login .logo p { color: var(--pan-suave); font-size: 13px; margin: 0; }
+
+.ayuda-login {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--pan-borde);
+    font-size: 12px;
+    color: var(--pan-suave);
+    line-height: 1.7;
+}
+
+.ayuda-login code {
+    background: #F5EFE6;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--pan-horno);
+}
+
+/* --------------------------------------------------------------- Ventas */
+.lista-productos { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 12px; }
+
+.producto {
+    background: #fff;
+    border: 1px solid var(--pan-borde);
+    border-radius: var(--radio);
+    padding: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: .15s;
+}
+
+.producto:hover { border-color: var(--pan-corteza); transform: translateY(-2px); box-shadow: var(--sombra); }
+.producto:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.producto .nombre { font-weight: 600; margin-bottom: 6px; color: var(--pan-horno); }
+.producto .precio { font-size: 20px; font-weight: 700; color: var(--pan-corteza); }
+.producto .stock { font-size: 12px; color: var(--pan-suave); margin-top: 4px; }
+
+.carrito { position: sticky; top: 20px; }
+.carrito .vacio { text-align: center; color: var(--pan-suave); padding: 30px 0; font-size: 14px; }
+
+.renglon { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #F0EAE0; }
+.renglon .desc { flex: 1; min-width: 0; }
+.renglon .desc .n { font-weight: 600; font-size: 14px; }
+.renglon .desc .p { font-size: 12px; color: var(--pan-suave); }
+.renglon input[type=number] { width: 58px; padding: 5px; text-align: center; }
+.renglon .sub { width: 62px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.total-caja {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0 14px;
+    margin-top: 6px;
+    border-top: 2px solid var(--pan-horno);
+}
+
+.total-caja .t { font-size: 15px; font-weight: 600; }
+.total-caja .m { font-size: 30px; font-weight: 700; color: var(--pan-corteza); font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------- Varios */
+.cargando { text-align: center; padding: 30px; color: var(--pan-suave); font-size: 14px; }
+.pie { text-align: center; color: var(--pan-suave); font-size: 12px; padding: 24px 0; }
+
+@media (max-width: 860px) {
+    .rejilla.dos, .rejilla.tres, .rejilla.cuatro { grid-template-columns: 1fr; }
+    .carrito { position: static; }
+    .barra { gap: 10px; }
+}

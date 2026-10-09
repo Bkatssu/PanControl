@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanControl - Panel del administrador</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra" id="barra"></header>
+
+<div class="contenido">
+
+    <h1>Panel del administrador</h1>
+    <p class="subtitulo" id="fechaHoy"></p>
+
+    <div id="mensaje" class="mensaje oculto"></div>
+
+    <!-- --------------------------------------------- Indicadores -->
+    <div class="rejilla cuatro" style="margin-bottom:22px">
+        <div class="indicador">
+            <div class="etiqueta">Vendido hoy</div>
+            <div class="valor" id="totalHoy">&mdash;</div>
+            <div class="nota" id="cantidadHoy">&nbsp;</div>
+        </div>
+        <div class="indicador">
+            <div class="etiqueta">Producto mas vendido</div>
+            <div class="valor" id="masVendido" style="font-size:20px">&mdash;</div>
+            <div class="nota" id="masVendidoNota">&nbsp;</div>
+        </div>
+        <div class="indicador">
+            <div class="etiqueta">Productos en catalogo</div>
+            <div class="valor" id="totalProductos">&mdash;</div>
+            <div class="nota">activos a la venta</div>
+        </div>
+        <div class="indicador" id="indicadorAlertas">
+            <div class="etiqueta">Alertas de inventario</div>
+            <div class="valor" id="totalAlertas">&mdash;</div>
+            <div class="nota">articulos por reabastecer</div>
+        </div>
+    </div>
+
+    <div class="rejilla dos">
+
+        <!-- --------------------------------------------- Mas vendidos -->
+        <div class="tarjeta">
+            <h2>Productos mas vendidos</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="num">Unidades</th>
+                        <th class="num">Generado</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaMasVendidos">
+                    <tr><td colspan="3" class="cargando">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- --------------------------------------------- Alertas -->
+        <div class="tarjeta">
+            <h2>Hay que reabastecer</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Articulo</th>
+                        <th>Tipo</th>
+                        <th class="num">Existencia</th>
+                        <th class="num">Minimo</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaAlertas">
+                    <tr><td colspan="4" class="cargando">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- --------------------------------------------- Ventas -->
+    <div class="tarjeta">
+        <h2>Ultimas ventas registradas</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Fecha</th>
+                    <th>Cajero</th>
+                    <th>Pago</th>
+                    <th class="num">Total</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="tablaVentas">
+                <tr><td colspan="6" class="cargando">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="pie">PanControl &middot; Carmen Bakery GT</p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    const usuario = sesion.exigir(["Administrador"]);
+    dibujarBarra("admin.html");
+
+    document.getElementById("fechaHoy").textContent =
+        "Resumen del " + new Date().toLocaleDateString("es-GT", {
+            weekday: "long", day: "numeric", month: "long", year: "numeric"
+        });
+
+    /* ------------------------------------------------- Ventas del dia */
+    async function cargarVentasDelDia() {
+        try {
+            const datos = await api.ventasDelDia();
+            document.getElementById("totalHoy").textContent = moneda(datos.totalVendido);
+            document.getElementById("cantidadHoy").textContent =
+                datos.cantidadVentas === 1 ? "1 venta" : `${datos.cantidadVentas} ventas`;
+        } catch (error) {
+            document.getElementById("totalHoy").textContent = "error";
+        }
+    }
+
+    /* ------------------------------------------------- Mas vendidos */
+    async function cargarMasVendidos() {
+        const cuerpo = document.getElementById("tablaMasVendidos");
+        try {
+            const lista = await api.masVendidos(5);
+
+            if (lista.length === 0) {
+                cuerpo.innerHTML = '<tr><td colspan="3" class="cargando">Todavia no hay ventas.</td></tr>';
+                document.getElementById("masVendido").textContent = "Sin datos";
+                return;
+            }
+
+            cuerpo.innerHTML = lista.map(p => `
+                <tr>
+                    <td><strong>${limpiar(p.producto)}</strong></td>
+                    <td class="num">${p.unidadesVendidas}</td>
+                    <td class="num">${moneda(p.totalGenerado)}</td>
+                </tr>`).join("");
+
+            document.getElementById("masVendido").textContent = lista[0].producto;
+            document.getElementById("masVendidoNota").textContent =
+                `${lista[0].unidadesVendidas} unidades vendidas`;
+
+        } catch (error) {
+            cuerpo.innerHTML = `<tr><td colspan="3" class="mensaje error">${limpiar(error.message)}</td></tr>`;
+        }
+    }
+
+    /* ------------------------------------------------- Alertas */
+    async function cargarAlertas() {
+        const cuerpo = document.getElementById("tablaAlertas");
+        try {
+            const datos = await api.bajoInventario();
+
+            document.getElementById("totalAlertas").textContent = datos.totalAlertas;
+
+            // El indicador se pinta de rojo solo si hay algo que atender
+            document.getElementById("indicadorAlertas")
+                .classList.toggle("alerta", datos.totalAlertas > 0);
+
+            if (datos.totalAlertas === 0) {
+                cuerpo.innerHTML = '<tr><td colspan="4" class="cargando">Todo con existencia suficiente.</td></tr>';
+                return;
+            }
+
+            const filasProductos = (datos.productos || []).map(p => `
+                <tr>
+                    <td><strong>${limpiar(p.nombre)}</strong></td>
+                    <td><span class="chip aviso">Producto</span></td>
+                    <td class="num">${p.existencia}</td>
+                    <td class="num">${p.stockMinimo}</td>
+                </tr>`).join("");
+
+            const filasMaterias = (datos.materiasPrimas || []).map(m => `
+                <tr>
+                    <td><strong>${limpiar(m.nombre)}</strong></td>
+                    <td><span class="chip bajo">Materia prima</span></td>
+                    <td class="num">${Number(m.existencia).toFixed(2)} ${limpiar(m.unidadMedida)}</td>
+                    <td class="num">${Number(m.stockMinimo).toFixed(2)}</td>
+                </tr>`).join("");
+
+            cuerpo.innerHTML = filasProductos + filasMaterias;
+
+        } catch (error) {
+            cuerpo.innerHTML = `<tr><td colspan="4" class="mensaje error">${limpiar(error.message)}</td></tr>`;
+        }
+    }
+
+    /* ------------------------------------------------- Catalogo */
+    async function cargarTotalProductos() {
+        try {
+            const productos = await api.productos();
+            document.getElementById("totalProductos").textContent = productos.length;
+        } catch {
+            document.getElementById("totalProductos").textContent = "-";
+        }
+    }
+
+    /* ------------------------------------------------- Ventas */
+    async function cargarVentas() {
+        const cuerpo = document.getElementById("tablaVentas");
+        try {
+            const ventas = await api.ventas();
+
+            if (ventas.length === 0) {
+                cuerpo.innerHTML = '<tr><td colspan="6" class="cargando">Todavia no hay ventas registradas.</td></tr>';
+                return;
+            }
+
+            cuerpo.innerHTML = ventas.slice(0, 15).map(v => `
+                <tr>
+                    <td class="num">${v.idVenta}</td>
+                    <td>${fechaHora(v.fecha)}</td>
+                    <td>${limpiar(v.cajero)}</td>
+                    <td>${limpiar(v.metodoPago)}</td>
+                    <td class="num"><strong>${moneda(v.total)}</strong></td>
+                    <td><button class="secundario chico" data-anular="${v.idVenta}">Anular</button></td>
+                </tr>`).join("");
+
+            cuerpo.querySelectorAll("[data-anular]").forEach(boton => {
+                boton.addEventListener("click", () => anular(Number(boton.dataset.anular)));
+            });
+
+        } catch (error) {
+            cuerpo.innerHTML = `<tr><td colspan="6" class="mensaje error">${limpiar(error.message)}</td></tr>`;
+        }
+    }
+
+    /* ------------------------------------------------- Anular una venta */
+    async function anular(idVenta) {
+        const confirmado = confirm(
+            `Anular la venta #${idVenta}?\n\n` +
+            "Los productos regresaran al inventario y la venta dejara de contar en los reportes."
+        );
+        if (!confirmado) return;
+
+        try {
+            const resultado = await api.anularVenta(idVenta, usuario.idUsuario);
+            avisar("mensaje", resultado.mensaje, "exito");
+            cargarTodo();
+        } catch (error) {
+            avisar("mensaje", "No se pudo anular: " + error.message, "error");
+        }
+    }
+
+    function cargarTodo() {
+        cargarVentasDelDia();
+        cargarMasVendidos();
+        cargarAlertas();
+        cargarTotalProductos();
+        cargarVentas();
+    }
+
+    cargarTodo();
+</script>
+
+</body>
+</html>

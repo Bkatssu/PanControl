@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanControl - Inventario</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra" id="barra"></header>
+
+<div class="contenido">
+
+    <h1>Inventario</h1>
+    <p class="subtitulo">Existencias de productos terminados y de materias primas.</p>
+
+    <div id="mensaje" class="mensaje oculto"></div>
+
+    <!-- --------------------------------------------- Registrar una compra -->
+    <div class="tarjeta" id="cajaCompra">
+        <h2>Registrar compra de materia prima</h2>
+        <div class="fila">
+            <div>
+                <label for="materia">Materia prima</label>
+                <select id="materia"><option>Cargando...</option></select>
+            </div>
+            <div>
+                <label for="cantidad">Cantidad</label>
+                <input type="number" id="cantidad" min="0.01" step="0.01" placeholder="Ej. 50">
+            </div>
+            <div style="flex:0 0 auto">
+                <button id="btnEntrada">Registrar entrada</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- --------------------------------------------- Productos -->
+    <div class="tarjeta">
+        <h2>Productos terminados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th class="num">Existencia</th>
+                    <th class="num">Stock minimo</th>
+                    <th class="num">Precio</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tablaProductos">
+                <tr><td colspan="5" class="cargando">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- --------------------------------------------- Materias primas -->
+    <div class="tarjeta">
+        <h2>Materias primas</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Materia prima</th>
+                    <th class="num">Existencia</th>
+                    <th class="num">Stock minimo</th>
+                    <th>Unidad</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tablaMaterias">
+                <tr><td colspan="5" class="cargando">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="pie">PanControl &middot; Carmen Bakery GT</p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    const usuario = sesion.exigir();
+    dibujarBarra("inventario.html");
+
+    // Solo el administrador y el encargado de produccion registran compras
+    if (usuario.rol === "Cajero") {
+        document.getElementById("cajaCompra").classList.add("oculto");
+    }
+
+    /* ------------------------------------------------- Productos */
+    async function cargarProductos() {
+        const cuerpo = document.getElementById("tablaProductos");
+        try {
+            const productos = await api.productos();
+
+            if (productos.length === 0) {
+                cuerpo.innerHTML = '<tr><td colspan="5" class="cargando">Sin productos.</td></tr>';
+                return;
+            }
+
+            cuerpo.innerHTML = productos.map(p => `
+                <tr>
+                    <td><strong>${limpiar(p.nombre)}</strong></td>
+                    <td class="num">${p.existencia}</td>
+                    <td class="num">${p.stockMinimo}</td>
+                    <td class="num">${moneda(p.precioVenta)}</td>
+                    <td>${etiquetaEstado(p.existencia, p.stockMinimo)}</td>
+                </tr>`).join("");
+
+        } catch (error) {
+            cuerpo.innerHTML = `<tr><td colspan="5" class="mensaje error">${limpiar(error.message)}</td></tr>`;
+        }
+    }
+
+    /* ------------------------------------------------- Materias primas */
+    async function cargarMaterias() {
+        const cuerpo = document.getElementById("tablaMaterias");
+        const lista = document.getElementById("materia");
+
+        try {
+            const materias = await api.materiasPrimas();
+
+            if (materias.length === 0) {
+                cuerpo.innerHTML = '<tr><td colspan="5" class="cargando">Sin materias primas.</td></tr>';
+                lista.innerHTML = "<option>No hay materias primas</option>";
+                return;
+            }
+
+            cuerpo.innerHTML = materias.map(m => `
+                <tr>
+                    <td><strong>${limpiar(m.nombre)}</strong></td>
+                    <td class="num">${Number(m.existencia).toFixed(2)}</td>
+                    <td class="num">${Number(m.stockMinimo).toFixed(2)}</td>
+                    <td>${limpiar(m.unidadMedida)}</td>
+                    <td>${etiquetaEstado(m.existencia, m.stockMinimo)}</td>
+                </tr>`).join("");
+
+            lista.innerHTML = materias.map(m =>
+                `<option value="${m.idMateriaPrima}">${limpiar(m.nombre)} (${limpiar(m.unidadMedida)})</option>`
+            ).join("");
+
+        } catch (error) {
+            cuerpo.innerHTML = `<tr><td colspan="5" class="mensaje error">${limpiar(error.message)}</td></tr>`;
+        }
+    }
+
+    // Compara existencia contra el minimo y devuelve la etiqueta de color
+    function etiquetaEstado(existencia, minimo) {
+        const actual = Number(existencia);
+        const limite = Number(minimo);
+
+        if (actual <= limite) return '<span class="chip bajo">Reabastecer</span>';
+        if (actual <= limite * 1.5) return '<span class="chip aviso">Por agotarse</span>';
+        return '<span class="chip ok">Suficiente</span>';
+    }
+
+    /* ------------------------------------------------- Registrar entrada */
+    document.getElementById("btnEntrada").addEventListener("click", async () => {
+        const idMateria = document.getElementById("materia").value;
+        const cantidad = parseFloat(document.getElementById("cantidad").value);
+
+        if (!idMateria || isNaN(cantidad) || cantidad <= 0) {
+            avisar("mensaje", "Elige una materia prima y escribe una cantidad mayor a cero.", "error");
+            return;
+        }
+
+        const boton = document.getElementById("btnEntrada");
+        boton.disabled = true;
+        boton.textContent = "Registrando...";
+
+        try {
+            const resultado = await api.entradaMateriaPrima(idMateria, cantidad, usuario.idUsuario);
+            avisar("mensaje", resultado.mensaje, "exito");
+            document.getElementById("cantidad").value = "";
+            await cargarMaterias();
+        } catch (error) {
+            avisar("mensaje", "No se pudo registrar la entrada: " + error.message, "error");
+        } finally {
+            boton.disabled = false;
+            boton.textContent = "Registrar entrada";
+        }
+    });
+
+    cargarProductos();
+    cargarMaterias();
+</script>
+
+</body>
+</html>

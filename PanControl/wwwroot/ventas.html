@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanControl - Ventas</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra" id="barra"></header>
+
+<div class="contenido">
+
+    <h1>Registrar venta</h1>
+    <p class="subtitulo">Selecciona los productos, ajusta las cantidades y guarda la venta.</p>
+
+    <div id="mensaje" class="mensaje oculto"></div>
+
+    <div class="rejilla dos">
+
+        <!-- ------------------------------------------------ Catalogo -->
+        <div class="tarjeta">
+            <h2>Productos disponibles</h2>
+            <div id="catalogo" class="lista-productos">
+                <div class="cargando">Cargando productos...</div>
+            </div>
+        </div>
+
+        <!-- ------------------------------------------------ Carrito -->
+        <div class="tarjeta carrito">
+            <h2>Detalle de la venta</h2>
+
+            <div id="renglones">
+                <div class="vacio">Aun no has agregado productos.<br>Haz clic en uno del catalogo.</div>
+            </div>
+
+            <div class="total-caja">
+                <span class="t">Total</span>
+                <span class="m" id="total">Q0.00</span>
+            </div>
+
+            <div class="campo">
+                <label for="metodoPago">Metodo de pago</label>
+                <select id="metodoPago">
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TARJETA">Tarjeta</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                </select>
+            </div>
+
+            <button class="ancho" id="btnGuardar" disabled>Guardar venta</button>
+            <button class="secundario ancho" id="btnLimpiar" style="margin-top:8px">Limpiar</button>
+        </div>
+
+    </div>
+
+    <p class="pie">PanControl &middot; Carmen Bakery GT</p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    // Solo el cajero y el administrador pueden registrar ventas
+    const usuario = sesion.exigir(["Cajero", "Administrador"]);
+    dibujarBarra("ventas.html");
+
+    let productos = [];   // catalogo traido del backend
+    let carrito = [];     // { idProducto, nombre, precio, cantidad, existencia }
+
+    /* ------------------------------------------------- Cargar el catalogo */
+    async function cargarProductos() {
+        try {
+            productos = await api.productos();
+            dibujarCatalogo();
+        } catch (error) {
+            document.getElementById("catalogo").innerHTML =
+                `<div class="mensaje error">No se pudo cargar el catalogo: ${limpiar(error.message)}</div>`;
+        }
+    }
+
+    function dibujarCatalogo() {
+        const caja = document.getElementById("catalogo");
+
+        if (productos.length === 0) {
+            caja.innerHTML = '<div class="cargando">No hay productos registrados.</div>';
+            return;
+        }
+
+        caja.innerHTML = productos.map(p => {
+            const agotado = p.existencia <= 0;
+            return `
+                <button class="producto" data-id="${p.idProducto}" ${agotado ? "disabled" : ""}>
+                    <div class="nombre">${limpiar(p.nombre)}</div>
+                    <div class="precio">${moneda(p.precioVenta)}</div>
+                    <div class="stock">${agotado ? "Agotado" : p.existencia + " disponibles"}</div>
+                </button>`;
+        }).join("");
+
+        // Un solo manejador para todos los botones
+        caja.querySelectorAll(".producto").forEach(boton => {
+            boton.addEventListener("click", () => agregar(Number(boton.dataset.id)));
+        });
+    }
+
+    /* ------------------------------------------------- Carrito */
+    function agregar(idProducto) {
+        const producto = productos.find(p => p.idProducto === idProducto);
+        if (!producto) return;
+
+        const existente = carrito.find(linea => linea.idProducto === idProducto);
+
+        if (existente) {
+            // No dejamos pasar de la existencia disponible
+            if (existente.cantidad >= producto.existencia) {
+                avisar("mensaje", `Solo hay ${producto.existencia} unidades de ${producto.nombre}.`, "info", 4);
+                return;
+            }
+            existente.cantidad++;
+        } else {
+            carrito.push({
+                idProducto: producto.idProducto,
+                nombre: producto.nombre,
+                precio: producto.precioVenta,
+                cantidad: 1,
+                existencia: producto.existencia
+            });
+        }
+
+        dibujarCarrito();
+    }
+
+    function cambiarCantidad(idProducto, nuevaCantidad) {
+        const linea = carrito.find(l => l.idProducto === idProducto);
+        if (!linea) return;
+
+        let cantidad = parseInt(nuevaCantidad, 10);
+
+        if (isNaN(cantidad) || cantidad < 1) cantidad = 1;
+
+        if (cantidad > linea.existencia) {
+            cantidad = linea.existencia;
+            avisar("mensaje", `Solo hay ${linea.existencia} unidades de ${linea.nombre}.`, "info", 4);
+        }
+
+        linea.cantidad = cantidad;
+        dibujarCarrito();
+    }
+
+    function quitar(idProducto) {
+        carrito = carrito.filter(l => l.idProducto !== idProducto);
+        dibujarCarrito();
+    }
+
+    function dibujarCarrito() {
+        const caja = document.getElementById("renglones");
+        const boton = document.getElementById("btnGuardar");
+
+        if (carrito.length === 0) {
+            caja.innerHTML = '<div class="vacio">Aun no has agregado productos.<br>Haz clic en uno del catalogo.</div>';
+            document.getElementById("total").textContent = moneda(0);
+            boton.disabled = true;
+            return;
+        }
+
+        caja.innerHTML = carrito.map(linea => `
+            <div class="renglon">
+                <div class="desc">
+                    <div class="n">${limpiar(linea.nombre)}</div>
+                    <div class="p">${moneda(linea.precio)} c/u</div>
+                </div>
+                <input type="number" min="1" max="${linea.existencia}" value="${linea.cantidad}"
+                       data-id="${linea.idProducto}" class="cantidad">
+                <div class="sub">${moneda(linea.precio * linea.cantidad)}</div>
+                <button class="peligro chico" data-quitar="${linea.idProducto}">&times;</button>
+            </div>`).join("");
+
+        caja.querySelectorAll(".cantidad").forEach(campo => {
+            campo.addEventListener("change", () =>
+                cambiarCantidad(Number(campo.dataset.id), campo.value));
+        });
+
+        caja.querySelectorAll("[data-quitar]").forEach(boton => {
+            boton.addEventListener("click", () =>
+                quitar(Number(boton.dataset.quitar)));
+        });
+
+        // El total se calcula aqui solo para mostrarlo; el oficial lo calcula
+        // el backend al guardar, para que nadie pueda alterarlo desde el navegador.
+        const total = carrito.reduce((suma, l) => suma + l.precio * l.cantidad, 0);
+        document.getElementById("total").textContent = moneda(total);
+        boton.disabled = false;
+    }
+
+    /* ------------------------------------------------- Guardar la venta */
+    document.getElementById("btnGuardar").addEventListener("click", async () => {
+        if (carrito.length === 0) return;
+
+        const boton = document.getElementById("btnGuardar");
+        boton.disabled = true;
+        boton.textContent = "Guardando...";
+
+        try {
+            const resultado = await api.registrarVenta({
+                idUsuario: usuario.idUsuario,
+                metodoPago: document.getElementById("metodoPago").value,
+                productos: carrito.map(l => ({ idProducto: l.idProducto, cantidad: l.cantidad }))
+            });
+
+            avisar("mensaje",
+                `Venta #${resultado.idVenta} registrada por ${moneda(resultado.total)}. El inventario ya se actualizo.`,
+                "exito", 8);
+
+            carrito = [];
+            dibujarCarrito();
+            await cargarProductos();   // vuelve a leer las existencias ya descontadas
+
+        } catch (error) {
+            avisar("mensaje", "No se pudo guardar la venta: " + error.message, "error", 8);
+        } finally {
+            boton.disabled = carrito.length === 0;
+            boton.textContent = "Guardar venta";
+        }
+    });
+
+    document.getElementById("btnLimpiar").addEventListener("click", () => {
+        carrito = [];
+        dibujarCarrito();
+    });
+
+    cargarProductos();
+</script>
+
+</body>
+</html>

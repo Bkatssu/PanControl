@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanControl - Produccion</title>
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra" id="barra"></header>
+
+<div class="contenido">
+
+    <h1>Registrar produccion</h1>
+    <p class="subtitulo">Al registrar lo producido, el sistema suma los productos y descuenta las materias primas segun la receta.</p>
+
+    <div id="mensaje" class="mensaje oculto"></div>
+
+    <div class="rejilla dos">
+
+        <!-- --------------------------------------------- Formulario -->
+        <div class="tarjeta">
+            <h2>Produccion del dia</h2>
+
+            <div class="campo">
+                <label for="producto">Producto elaborado</label>
+                <select id="producto"><option>Cargando...</option></select>
+            </div>
+
+            <div class="campo">
+                <label for="cantidad">Cantidad producida (unidades)</label>
+                <input type="number" id="cantidad" min="1" step="1" placeholder="Ej. 100">
+            </div>
+
+            <button class="ancho" id="btnRegistrar">Registrar produccion</button>
+        </div>
+
+        <!-- --------------------------------------------- Receta -->
+        <div class="tarjeta">
+            <h2>Receta e insumos necesarios</h2>
+            <div id="receta">
+                <p class="cargando">Elige un producto para ver su receta.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- --------------------------------------------- Resultado -->
+    <div class="tarjeta oculto" id="cajaResultado">
+        <h2>Materias primas consumidas</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Materia prima</th>
+                    <th class="num">Consumido</th>
+                    <th>Unidad</th>
+                    <th class="num">Restante</th>
+                </tr>
+            </thead>
+            <tbody id="tablaConsumo"></tbody>
+        </table>
+    </div>
+
+    <p class="pie">PanControl &middot; Carmen Bakery GT</p>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+    const usuario = sesion.exigir(["Produccion", "Administrador"]);
+    dibujarBarra("produccion.html");
+
+    let productos = [];
+
+    /* ------------------------------------------------- Cargar productos */
+    async function cargarProductos() {
+        const lista = document.getElementById("producto");
+        try {
+            productos = await api.productos();
+
+            if (productos.length === 0) {
+                lista.innerHTML = "<option>No hay productos</option>";
+                return;
+            }
+
+            lista.innerHTML = productos.map(p =>
+                `<option value="${p.idProducto}">${limpiar(p.nombre)} (hay ${p.existencia})</option>`
+            ).join("");
+
+            mostrarReceta();
+
+        } catch (error) {
+            avisar("mensaje", "No se pudieron cargar los productos: " + error.message, "error", 0);
+        }
+    }
+
+    /* ------------------------------------------------- Mostrar la receta */
+    async function mostrarReceta() {
+        const idProducto = document.getElementById("producto").value;
+        const caja = document.getElementById("receta");
+
+        if (!idProducto) return;
+
+        caja.innerHTML = '<p class="cargando">Cargando receta...</p>';
+
+        try {
+            const datos = await api.receta(idProducto);
+            const cantidad = parseInt(document.getElementById("cantidad").value, 10) || 0;
+
+            if (!datos.ingredientes || datos.ingredientes.length === 0) {
+                caja.innerHTML = '<p class="cargando">Este producto no tiene receta registrada.<br>Se sumara al inventario sin descontar insumos.</p>';
+                return;
+            }
+
+            const filas = datos.ingredientes.map(i => {
+                const porUnidad = Number(i.cantidad);
+                const total = porUnidad * cantidad;
+                return `
+                    <tr>
+                        <td>${limpiar(i.materiaPrima)}</td>
+                        <td class="num">${porUnidad.toFixed(3)}</td>
+                        <td class="num">${cantidad > 0 ? total.toFixed(2) : "&mdash;"}</td>
+                        <td>${limpiar(i.unidad)}</td>
+                    </tr>`;
+            }).join("");
+
+            caja.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Materia prima</th>
+                            <th class="num">Por unidad</th>
+                            <th class="num">Total necesario</th>
+                            <th>Unidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>${filas}</tbody>
+                </table>
+                <p class="subtitulo" style="margin:12px 0 0">
+                    ${cantidad > 0
+                        ? `Para producir ${cantidad} unidades de ${limpiar(datos.producto)}.`
+                        : "Escribe una cantidad para ver cuanto insumo se necesita."}
+                </p>`;
+
+        } catch (error) {
+            caja.innerHTML = `<div class="mensaje error">${limpiar(error.message)}</div>`;
+        }
+    }
+
+    document.getElementById("producto").addEventListener("change", mostrarReceta);
+    document.getElementById("cantidad").addEventListener("input", mostrarReceta);
+
+    /* ------------------------------------------------- Registrar */
+    document.getElementById("btnRegistrar").addEventListener("click", async () => {
+        const idProducto = parseInt(document.getElementById("producto").value, 10);
+        const cantidad = parseInt(document.getElementById("cantidad").value, 10);
+
+        if (!idProducto || isNaN(cantidad) || cantidad <= 0) {
+            avisar("mensaje", "Elige un producto y escribe una cantidad mayor a cero.", "error");
+            return;
+        }
+
+        const boton = document.getElementById("btnRegistrar");
+        boton.disabled = true;
+        boton.textContent = "Registrando...";
+
+        try {
+            const resultado = await api.registrarProduccion({
+                idProducto: idProducto,
+                cantidad: cantidad,
+                idUsuario: usuario.idUsuario
+            });
+
+            avisar("mensaje",
+                `${resultado.mensaje} Existencia actual: ${resultado.existenciaActual} unidades.`,
+                "exito", 8);
+
+            // Muestra que materias primas se gastaron
+            const consumos = resultado.materiasPrimasConsumidas || [];
+
+            if (consumos.length > 0) {
+                document.getElementById("tablaConsumo").innerHTML = consumos.map(c => `
+                    <tr>
+                        <td>${limpiar(c.nombre)}</td>
+                        <td class="num">${Number(c.consumido).toFixed(2)}</td>
+                        <td>${limpiar(c.unidadMedida)}</td>
+                        <td class="num">${Number(c.restante).toFixed(2)}</td>
+                    </tr>`).join("");
+                document.getElementById("cajaResultado").classList.remove("oculto");
+            }
+
+            document.getElementById("cantidad").value = "";
+            await cargarProductos();
+
+        } catch (error) {
+            avisar("mensaje", "No se pudo registrar: " + error.message, "error", 10);
+        } finally {
+            boton.disabled = false;
+            boton.textContent = "Registrar produccion";
+        }
+    });
+
+    cargarProductos();
+</script>
+
+</body>
+</html>
